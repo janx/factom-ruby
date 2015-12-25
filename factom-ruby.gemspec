@@ -16,7 +16,7 @@ Gem::Specification.new do |s|
 
   s.files = Dir["{lib}/**/*"] + ["LICENSE", "README.markdown"]
 
-  s.add_runtime_dependency('base58', ['~> 0.1.0'])
+  s.add_runtime_dependency('bitcoin-ruby', ['~> 0.0.7'])
   s.add_runtime_dependency('rest-client', ['~> 1.8.0'])
   s.add_development_dependency('minitest', ['~> 5.4'])
 end

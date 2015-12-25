@@ -2,13 +2,13 @@ PATH
   remote: .
   specs:
     factom-ruby (0.0.1)
-      base58 (~> 0.1.0)
+      bitcoin-ruby (~> 0.0.7)
       rest-client (~> 1.8.0)
 
 GEM
   remote: https://rubygems.org/
   specs:
-    base58 (0.1.0)
+    bitcoin-ruby (0.0.7)
     domain_name (0.5.25)
       unf (>= 0.0.5, < 1.0.0)
     http-cookie (1.0.2)
