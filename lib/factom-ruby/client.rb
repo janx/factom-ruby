@@ -1,3 +1,4 @@
+require 'bigdecimal'
 require 'bitcoin'
 require 'digest'
 require 'json'
@@ -11,6 +12,9 @@ module Factom
 
     FACTOID_ADDRESS_PREFIX = '5fb1'.freeze
     ENTRY_CREDIT_ADDRESS_PREFIX = '592a'.freeze
+
+    FACTOID_DENOMINATION = 100000000
+    ENTRY_CREDIT_DENOMINATION = 1
 
     def height
       json = get "/v1/directory-block-height/"
@@ -50,10 +54,18 @@ module Factom
       json['Response']
     end
 
+    def fa_balance_in_decimal(addr)
+      BigDecimal.new(fa_balance(addr)) / FACTOID_DENOMINATION
+    end
+
     def ec_balance(addr)
       json = get "/v1/entry-credit-balance/#{decode_ec_addr(addr)}"
       raise GetBalanceFailed unless json['Success']
       json['Response']
+    end
+
+    def ec_balance_in_decimal(addr)
+      BigDecimal.new(ec_balance(addr)) / ENTRY_CREDIT_DENOMINATION
     end
 
     def decode_fa_addr(addr)
