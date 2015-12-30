@@ -2,19 +2,15 @@ require 'bigdecimal'
 require 'bitcoin'
 require 'digest'
 require 'json'
+require 'rbnacl'
 require 'rest-client'
 
 module Factom
   module APIv1
-    InvalidFactoidAddress = "Invalid factoid address!"
-    InvalidEntryCreditAddress = "Invalid entry credit address!"
     GetBalanceFailed = "Failed to get balance!"
 
-    FACTOID_ADDRESS_PREFIX = '5fb1'.freeze
-    ENTRY_CREDIT_ADDRESS_PREFIX = '592a'.freeze
-
-    FACTOID_DENOMINATION = 100000000
-    ENTRY_CREDIT_DENOMINATION = 1
+    DENOMINATION_FACTOID = 100000000
+    DENOMINATION_ENTRY_CREDIT = 1
 
     def height
       json = get "/v1/directory-block-height/"
@@ -48,38 +44,62 @@ module Factom
       get "/v1/properties/"
     end
 
-    def fa_balance(addr)
-      json = get "/v1/factoid-balance/#{decode_fa_addr(addr)}"
+    def fa_balance(pubkey)
+      json = get "/v1/factoid-balance/#{pubkey}"
       raise GetBalanceFailed unless json['Success']
       json['Response']
     end
 
-    def fa_balance_in_decimal(addr)
-      BigDecimal.new(fa_balance(addr)) / FACTOID_DENOMINATION
+    def fa_balance_in_decimal(pubkey)
+      BigDecimal.new(fa_balance(pubkey)) / DENOMINATION_FACTOID
     end
 
-    def ec_balance(addr)
-      json = get "/v1/entry-credit-balance/#{decode_ec_addr(addr)}"
+    def ec_balance(pubkey=ec_public_key)
+      json = get "/v1/entry-credit-balance/#{pubkey}"
       raise GetBalanceFailed unless json['Success']
       json['Response']
     end
 
-    def ec_balance_in_decimal(addr)
-      BigDecimal.new(ec_balance(addr)) / ENTRY_CREDIT_DENOMINATION
+    def ec_balance_in_decimal(pubkey=ec_public_key)
+      BigDecimal.new(ec_balance(pubkey)) / DENOMINATION_ENTRY_CREDIT
     end
 
-    def decode_fa_addr(addr)
-      addr =~ /\AFA/ ? decode_address(FACTOID_ADDRESS_PREFIX, addr) : addr
+    def commit_entry(chain_id, extids, content)
     end
 
-    def decode_ec_addr(addr)
-      addr =~ /\AEC/ ? decode_address(ENTRY_CREDIT_ADDRESS_PREFIX, addr) : addr
+  end
+
+  class Client
+    attr :endpoint
+
+    ADDRESS_PREFIX = {
+      'FA' => '5fb1',
+      'EC' => '592a'
+    }.freeze
+
+    def initialize(endpoint, ec_private_key, version='v1')
+      @endpoint = endpoint.gsub(/\/\z/, '')
+      @ec_private_key = ec_private_key
+      self.instance_eval { extend ::Factom.const_get("API#{version}", false) }
     end
 
-    private
+    def get(path, params={}, options={})
+      do_request :get, path, params, options
+    end
 
-    def decode_address(prefix, addr)
+    def post(path, params={}, options={})
+      do_request :post, path, params, options
+    end
+
+    def ec_public_key
+      @ec_public_key ||= signing_key.verify_key.to_s.unpack('H*').first
+    end
+
+    def address_to_pubkey(addr)
       return unless addr.size == 52
+
+      prefix = ADDRESS_PREFIX[addr[0,2]]
+      return unless prefix
 
       v = Bitcoin.decode_base58(addr)
       return if v[0,4] != prefix
@@ -91,24 +111,22 @@ module Factom
       v[4, 64]
     end
 
-  end
+    private
 
-  class Client
-    attr :endpoint
-
-    def initialize(endpoint, version='v1')
-      @endpoint = endpoint.gsub(/\/\z/, '')
-      self.instance_eval { extend ::Factom.const_get("API#{version}", false) }
-    end
-
-    def get(path, params={}, options={})
+    def do_request(method, path, params, options)
       uri = "#{endpoint}#{path}"
 
       options = {accept: :json}.merge(options)
       options[:params] = params
 
-      resp = RestClient.get uri, options
+      resp = RestClient.send method, uri, options
       JSON.parse resp
     end
+
+    # ed25519 private key
+    def signing_key
+      @signing_key ||= RbNaCl::SigningKey.new([@ec_private_key].pack('H*'))
+    end
+
   end
 end

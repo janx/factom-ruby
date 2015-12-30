@@ -2,7 +2,9 @@ PATH
   remote: .
   specs:
     factom-ruby (0.0.1)
-      bitcoin-ruby (~> 0.0.7)
+      bitcoin-ruby (>= 0.0.7)
+      rbnacl (>= 3.3.0)
+      rbnacl-libsodium (>= 1.0.8)
       rest-client (~> 1.8.0)
 
 GEM
@@ -11,12 +13,17 @@ GEM
     bitcoin-ruby (0.0.7)
     domain_name (0.5.25)
       unf (>= 0.0.5, < 1.0.0)
+    ffi (1.9.10)
     http-cookie (1.0.2)
       domain_name (~> 0.5)
     mime-types (2.99)
     minitest (5.8.3)
     netrc (0.11.0)
     rake (10.4.2)
+    rbnacl (3.3.0)
+      ffi
+    rbnacl-libsodium (1.0.8)
+      rbnacl (~> 3.0, >= 3.0.1)
     rest-client (1.8.0)
       http-cookie (>= 1.0.2, < 2.0)
       mime-types (>= 1.16, < 3.0)
