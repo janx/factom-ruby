@@ -9,6 +9,8 @@ module Factom
   module APIv1
     GetBalanceFailed = "Failed to get balance!"
 
+    VERSION = '00'.freeze
+
     DENOMINATION_FACTOID = 100000000
     DENOMINATION_ENTRY_CREDIT = 1
 
@@ -64,7 +66,62 @@ module Factom
       BigDecimal.new(ec_balance(pubkey)) / DENOMINATION_ENTRY_CREDIT
     end
 
-    def commit_entry(chain_id, extids, content)
+    def commit_entry(chain_id, ext_ids, content)
+      options = { content_type: :json }
+      params = { 'CommitEntryMsg' => get_entry_commit(chain_id, ext_ids, content) }
+
+      json = post "/v1/commit-entry/", params, options
+      json
+    end
+
+    def reveal_entry()
+    end
+
+    private
+
+    def get_entry_commit(chain_id, ext_ids, content)
+      timestamp = 1451468042000 #(Time.now.to_f*1000).floor
+      ts = [ timestamp ].pack('Q>').unpack('H*').first
+
+      entry = build_entry(chain_id, ext_ids, content)
+      entry_hash = get_entry_hash entry
+
+      # FIXME: pack to unsigned char, overflow risk
+      fee = [ calculate_fee(entry) ].pack('C').unpack('H*').first
+
+      commit = "#{VERSION}#{ts[4..-1]}#{entry_hash}#{fee}"
+      signature = signing_key.sign([commit].pack('H*')).unpack('H*').first
+
+      "#{commit}#{ec_public_key}#{signature}"
+    end
+
+    def get_entry_hash(entry)
+      sha512 = Digest::SHA512.hexdigest([entry].pack('H*')) + entry
+      Digest::SHA256.hexdigest [sha512].pack('H*')
+    end
+
+    def build_entry(chain_id, ext_ids, content)
+      len = 0
+      ext_ids_hex = []
+      content_hex = content.unpack('H*').first
+
+      ext_ids.each do |id|
+        len += id.size + 2
+        ext_ids_hex.push uint16_to_hex(id.size)
+        ext_ids_hex.push id.unpack('H*').first
+      end
+
+      "#{VERSION}#{chain_id}#{uint16_to_hex(len)}#{ext_ids_hex.join}#{content_hex}"
+    end
+
+    def calculate_fee(entry)
+      fee = entry.size / 2 # count of entry bytes
+      fee -= 35 # header doesn't count
+      (fee+1023)/1024 # round up and divide, rate = 1 EC/KiB
+    end
+
+    def uint16_to_hex(i)
+      [i].pack('n').unpack('H*').first
     end
 
   end
@@ -86,11 +143,20 @@ module Factom
     end
 
     def get(path, params={}, options={})
-      do_request :get, path, params, options
+      uri = "#{endpoint}#{path}"
+      options = {accept: :json}.merge(options)
+      options[:params] = params
+
+      resp = RestClient.get uri, options
+      JSON.parse resp
     end
 
     def post(path, params={}, options={})
-      do_request :post, path, params, options
+      uri = "#{endpoint}#{path}"
+      options = {accept: :json}.merge(options)
+
+      resp = RestClient.post uri, params, options
+      JSON.parse resp
     end
 
     def ec_public_key
@@ -129,16 +195,6 @@ module Factom
     end
 
     private
-
-    def do_request(method, path, params, options)
-      uri = "#{endpoint}#{path}"
-
-      options = {accept: :json}.merge(options)
-      options[:params] = params
-
-      resp = RestClient.send method, uri, options
-      JSON.parse resp
-    end
 
     # ed25519 private key
     def signing_key
