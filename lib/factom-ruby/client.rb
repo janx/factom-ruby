@@ -72,14 +72,16 @@ module Factom
   class Client
     attr :endpoint
 
+    PREFIX_FA = 'FA'.freeze
+    PREFIX_EC = 'EC'.freeze
     ADDRESS_PREFIX = {
-      'FA' => '5fb1',
-      'EC' => '592a'
+      PREFIX_FA => '5fb1',
+      PREFIX_EC => '592a'
     }.freeze
 
     def initialize(endpoint, ec_private_key, version='v1')
       @endpoint = endpoint.gsub(/\/\z/, '')
-      @ec_private_key = ec_private_key
+      @ec_private_key = ec_private_key =~ /\A#{PREFIX_EC}/ ? address_to_pubkey(ec_private_key) : ec_private_key
       self.instance_eval { extend ::Factom.const_get("API#{version}", false) }
     end
 
@@ -95,6 +97,11 @@ module Factom
       @ec_public_key ||= signing_key.verify_key.to_s.unpack('H*').first
     end
 
+    def ec_address
+      @ec_address ||= pubkey_to_address ADDRESS_PREFIX[PREFIX_EC], ec_public_key
+    end
+
+    # to pubkey in hex, 32 bytes
     def address_to_pubkey(addr)
       return unless addr.size == 52
 
@@ -109,6 +116,16 @@ module Factom
       return if v[68, 8] != sha256d[0, 8]
 
       v[4, 64]
+    end
+
+    def pubkey_to_address(prefix, pubkey)
+      return unless pubkey.size == 64 # 32 bytes in hex
+
+      addr = "#{prefix}#{pubkey}"
+      bytes = [addr].pack('H*')
+      sha256d = Digest::SHA256.hexdigest(Digest::SHA256.digest(bytes))
+
+      Bitcoin.encode_base58 "#{addr}#{sha256d[0,8]}"
     end
 
     private
