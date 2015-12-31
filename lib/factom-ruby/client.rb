@@ -67,20 +67,21 @@ module Factom
     end
 
     def commit_entry(chain_id, ext_ids, content)
-      options = { content_type: :json }
       params = { 'CommitEntryMsg' => get_entry_commit(chain_id, ext_ids, content) }
-
-      json = post "/v1/commit-entry/", params, options
-      json
+      # TODO: will factom make response return json, for a better world?
+      raw_post "/v1/commit-entry/", params.to_json, content_type: :json
     end
 
-    def reveal_entry()
+    def reveal_entry(chain_id, ext_ids, content)
+      params = { 'Entry' => build_entry(chain_id, ext_ids, content) }
+      # TODO: the same, replace raw_post with post
+      raw_post "/v1/reveal-entry/", params.to_json, content_type: :json
     end
 
     private
 
     def get_entry_commit(chain_id, ext_ids, content)
-      timestamp = 1451468042000 #(Time.now.to_f*1000).floor
+      timestamp = (Time.now.to_f*1000).floor
       ts = [ timestamp ].pack('Q>').unpack('H*').first
 
       entry = build_entry(chain_id, ext_ids, content)
@@ -142,21 +143,23 @@ module Factom
       self.instance_eval { extend ::Factom.const_get("API#{version}", false) }
     end
 
-    def get(path, params={}, options={})
+    def raw_get(path, params={}, options={})
       uri = "#{endpoint}#{path}"
       options = {accept: :json}.merge(options)
       options[:params] = params
 
-      resp = RestClient.get uri, options
-      JSON.parse resp
+      RestClient.get uri, options
     end
 
-    def post(path, params={}, options={})
+    def get(path, params={}, options={})
+      JSON.parse raw_get(path, params, options)
+    end
+
+    def raw_post(path, params={}, options={})
       uri = "#{endpoint}#{path}"
       options = {accept: :json}.merge(options)
 
-      resp = RestClient.post uri, params, options
-      JSON.parse resp
+      RestClient.post uri, params, options
     end
 
     def ec_public_key
