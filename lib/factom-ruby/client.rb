@@ -37,6 +37,10 @@ module Factom
       get "/v1/entry-block-by-keymr/#{keymr}"
     end
 
+    def raw_data(hash)
+      get "/v1/get-raw-data/#{hash}"
+    end
+
     def entry(hash)
       decode_entry get "/v1/entry-by-hash/#{hash}"
     end
