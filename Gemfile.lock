@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    factom-ruby (0.1.0)
+    factom-ruby (0.1.1)
       bitcoin-ruby (>= 0.0.7)
       rbnacl (>= 3.3.0)
       rbnacl-libsodium (>= 1.0.8)

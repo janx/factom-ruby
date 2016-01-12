@@ -14,7 +14,7 @@ Gem::Specification.new do |s|
   s.description = "Ruby client consumes Factom (factom.org) API."
   s.license     = 'MIT'
 
-  s.files = Dir["{lib}/**/*"] + ["LICENSE", "README.markdown"]
+  s.files = Dir["{lib}/**/*"] + ["LICENSE", "README.md"]
 
   s.add_runtime_dependency('bitcoin-ruby', ['>= 0.0.7'])
   s.add_runtime_dependency('rbnacl-libsodium', ['>= 1.0.8'])
