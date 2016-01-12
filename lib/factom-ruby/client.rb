@@ -37,6 +37,10 @@ module Factom
       get "/v1/entry-block-by-keymr/#{keymr}"
     end
 
+    def entry(hash)
+      decode_entry get "/v1/entry-by-hash/#{hash}"
+    end
+
     def fee
       json = get "/v1/factoid-get-fee/"
       json['Fee']
@@ -155,6 +159,12 @@ module Factom
       end
 
       "#{VERSION}#{chain_id}#{uint16_to_hex(len)}#{ext_ids_hex.join}#{content_hex}"
+    end
+
+    def decode_entry(json)
+      json['ExtIDs'] = json['ExtIDs'].map {|bin| [bin].pack('H*') }
+      json['Content'] = [ json['Content'] ].pack('H*')
+      json
     end
 
     def calculate_fee(entry)
