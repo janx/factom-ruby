@@ -66,6 +66,15 @@ module Factom
       BigDecimal.new(ec_balance(pubkey)) / DENOMINATION_ENTRY_CREDIT
     end
 
+    # Params:
+    # chain_names - chain name combination, must be unique globally. It's
+    #               first entry's external ids actually.
+    # content     - content of first entry
+    def commit_chain(chain_names, content)
+      params = { 'CommitChainMsg' => get_chain_commit(chain_names, content) }
+      raw_post "/v1/commit-chain/", params.to_json, content_type: :json
+    end
+
     def commit_entry(chain_id, ext_ids, content)
       params = { 'CommitEntryMsg' => get_entry_commit(chain_id, ext_ids, content) }
       # TODO: will factom make response return json, for a better world?
@@ -80,6 +89,35 @@ module Factom
 
     private
 
+    def get_chain_commit(chain_names, content)
+      timestamp = (Time.now.to_f*1000).floor
+      ts = [ timestamp ].pack('Q>').unpack('H*').first
+
+      chain_id = get_chain_id chain_names
+      chain_id_hash = get_chain_id_hash chain_id
+
+      first_entry = build_entry chain_id, chain_names, content
+      first_entry_hash = get_entry_hash first_entry
+
+      weld = get_weld chain_id, first_entry_hash
+      fee = [ calculate_fee(first_entry) ].pack('C').unpack('H*').first
+
+      sign "#{VERSION}#{ts[4..-1]}#{chain_id_hash}#{weld}#{first_entry_hash}#{fee}"
+    end
+
+    def get_chain_id_hash(chain_id)
+      sha256d [chain_id].pack("H*")
+    end
+
+    def get_chain_id(chain_names)
+      pre_id = chain_names.map {|name| Digest::SHA256.digest(name) }.join
+      Digest::SHA256.hexdigest(pre_id)
+    end
+
+    def get_weld(chain_id, entry_hash)
+      sha256d [entry_hash+chain_id].pack("H*")
+    end
+
     def get_entry_commit(chain_id, ext_ids, content)
       timestamp = (Time.now.to_f*1000).floor
       ts = [ timestamp ].pack('Q>').unpack('H*').first
@@ -87,13 +125,9 @@ module Factom
       entry = build_entry(chain_id, ext_ids, content)
       entry_hash = get_entry_hash entry
 
-      # FIXME: pack to unsigned char, overflow risk
       fee = [ calculate_fee(entry) ].pack('C').unpack('H*').first
 
-      commit = "#{VERSION}#{ts[4..-1]}#{entry_hash}#{fee}"
-      signature = signing_key.sign([commit].pack('H*')).unpack('H*').first
-
-      "#{commit}#{ec_public_key}#{signature}"
+      sign "#{VERSION}#{ts[4..-1]}#{entry_hash}#{fee}"
     end
 
     def get_entry_hash(entry)
@@ -118,7 +152,13 @@ module Factom
     def calculate_fee(entry)
       fee = entry.size / 2 # count of entry bytes
       fee -= 35 # header doesn't count
-      (fee+1023)/1024 # round up and divide, rate = 1 EC/KiB
+      fee = (fee+1023)/1024 # round up and divide, rate = 1 EC/KiB
+
+      # fee only occupy 1 byte in commit message
+      # but the hard limit is 10kB actually, much less than 255
+      raise "entry is too large!" if fee > 255
+
+      fee
     end
 
     def uint16_to_hex(i)
@@ -181,8 +221,7 @@ module Factom
       return if v[0,4] != prefix
 
       bytes = [v[0, 68]].pack('H*')
-      sha256d = Digest::SHA256.hexdigest(Digest::SHA256.digest(bytes))
-      return if v[68, 8] != sha256d[0, 8]
+      return if v[68, 8] != sha256d(bytes)[0, 8]
 
       v[4, 64]
     end
@@ -192,16 +231,22 @@ module Factom
 
       addr = "#{prefix}#{pubkey}"
       bytes = [addr].pack('H*')
-      sha256d = Digest::SHA256.hexdigest(Digest::SHA256.digest(bytes))
 
-      Bitcoin.encode_base58 "#{addr}#{sha256d[0,8]}"
+      Bitcoin.encode_base58 "#{addr}#{sha256d(bytes)[0,8]}"
     end
 
-    private
+    def sha256d(bytes)
+      Digest::SHA256.hexdigest(Digest::SHA256.digest(bytes))
+    end
 
     # ed25519 private key
     def signing_key
       @signing_key ||= RbNaCl::SigningKey.new([@ec_private_key].pack('H*'))
+    end
+
+    def sign(message)
+      sig = signing_key.sign([message].pack('H*')).unpack('H*').first
+      "#{message}#{ec_public_key}#{sig}"
     end
 
   end
