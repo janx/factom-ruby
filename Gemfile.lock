@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    factom-ruby (0.0.1)
+    factom-ruby (0.1.0)
       bitcoin-ruby (>= 0.0.7)
       rbnacl (>= 3.3.0)
       rbnacl-libsodium (>= 1.0.8)
@@ -17,7 +17,6 @@ GEM
     http-cookie (1.0.2)
       domain_name (~> 0.5)
     mime-types (2.99)
-    minitest (5.8.3)
     netrc (0.11.0)
     rake (10.4.2)
     rbnacl (3.3.0)
@@ -37,7 +36,6 @@ PLATFORMS
 
 DEPENDENCIES
   factom-ruby!
-  minitest (~> 5.4)
   rake
 
 BUNDLED WITH

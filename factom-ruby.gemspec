@@ -20,5 +20,4 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency('rbnacl-libsodium', ['>= 1.0.8'])
   s.add_runtime_dependency('rbnacl', ['>= 3.3.0'])
   s.add_runtime_dependency('rest-client', ['~> 1.8.0'])
-  s.add_development_dependency('minitest', ['~> 5.4'])
 end
