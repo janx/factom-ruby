@@ -75,6 +75,14 @@ module Factom
       raw_post "/v1/commit-chain/", params.to_json, content_type: :json
     end
 
+    def reveal_chain(chain_names, content)
+      chain_id = get_chain_id chain_names
+      ext_ids  = chain_names
+
+      params = { 'Entry' => build_entry(chain_id, ext_ids, content) }
+      raw_post "/v1/reveal-chain/", params.to_json, content_type: :json
+    end
+
     def commit_entry(chain_id, ext_ids, content)
       params = { 'CommitEntryMsg' => get_entry_commit(chain_id, ext_ids, content) }
       # TODO: will factom make response return json, for a better world?
@@ -100,7 +108,7 @@ module Factom
       first_entry_hash = get_entry_hash first_entry
 
       weld = get_weld chain_id, first_entry_hash
-      fee = [ calculate_fee(first_entry) ].pack('C').unpack('H*').first
+      fee = [ calculate_fee(first_entry)+10 ].pack('C').unpack('H*').first
 
       sign "#{VERSION}#{ts[4..-1]}#{chain_id_hash}#{weld}#{first_entry_hash}#{fee}"
     end
